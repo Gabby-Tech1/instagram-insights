@@ -9,6 +9,7 @@ import warnings
 from pathlib import Path
 
 warnings.filterwarnings("ignore", message=".*OpenSSL.*")
+warnings.filterwarnings("ignore", message="Mean of empty slice")  # expected for accounts without reach data
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query

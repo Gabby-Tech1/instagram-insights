@@ -281,7 +281,13 @@ $("tabs").onclick = (e) => {
 $("syncBtn").onclick = sync;
 $("analyseBtn").onclick = analyse;
 
-loadStatus().then(loadStats).catch((e) => show(e.message, "err"));
+if (!location.protocol.startsWith("http")) {
+  // Opened as a file: there's no server behind the page, so the API calls can't work.
+  show("This page needs the server. In the project folder run: .venv/bin/uvicorn api:app --port 8000 — then open http://127.0.0.1:8000", "err");
+  document.querySelectorAll("button").forEach((b) => (b.disabled = true));
+} else {
+  loadStatus().then(loadStats).catch((e) => show(e.message, "err"));
+}
 </script>
 </body>
 </html>
