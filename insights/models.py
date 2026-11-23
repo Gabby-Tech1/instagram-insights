@@ -3,10 +3,11 @@ from __future__ import annotations
 
 import re
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 HASHTAG_RE = re.compile(r"#(\w+)")
+MIN_REACH = 10
 
 
 @dataclass
@@ -34,8 +35,11 @@ class Post:
 
     @property
     def engagement_rate(self) -> Optional[float]:
-        """Interactions per account reached (reach-based ER)."""
-        return self.interactions / self.reach if self.reach else None
+        """Interactions per account reached (reach-based ER).
+
+        None when reach is too small to divide by: Meta often reports reach of
+        0-1 for older posts, which would produce rates like 1500%."""
+        return self.interactions / self.reach if self.reach >= MIN_REACH else None
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -46,5 +50,9 @@ class Post:
     def from_dict(cls, d: dict) -> "Post":
         d = dict(d)
         ts = d["timestamp"]
-        d["timestamp"] = ts if isinstance(ts, datetime) else datetime.fromisoformat(ts.replace("Z", "+00:00").replace("+0000", "+00:00"))
+        if not isinstance(ts, datetime):
+            ts = datetime.fromisoformat(ts.replace("Z", "+00:00").replace("+0000", "+00:00"))
+        if ts.tzinfo is not None:  # store everything as naive UTC so sources can be mixed
+            ts = ts.astimezone(timezone.utc).replace(tzinfo=None)
+        d["timestamp"] = ts
         return cls(**{k: v for k, v in d.items() if k in cls.__dataclass_fields__})

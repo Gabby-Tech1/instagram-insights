@@ -24,8 +24,10 @@ class DataSource(ABC):
 class MockSource(DataSource):
     """Loads posts from a JSON file - lets the whole pipeline run without credentials."""
 
-    def __init__(self, path: str = "data/sample_posts.json"):
-        self.path = Path(path)
+    DEFAULT = Path(__file__).resolve().parent.parent / "data" / "sample_posts.json"
+
+    def __init__(self, path: str | None = None):
+        self.path = Path(path) if path else self.DEFAULT
 
     def fetch_posts(self, limit: int = 100) -> List[Post]:
         rows = json.loads(self.path.read_text())
@@ -33,27 +35,37 @@ class MockSource(DataSource):
 
 
 class InstagramSource(DataSource):
-    """Instagram API with Instagram Login (Business/Creator accounts).
+    """Instagram Graph API (Business/Creator accounts). Supports both token types Meta issues:
+
+    - Instagram Login tokens (start with "IG")  -> graph.instagram.com, /me/media
+    - Facebook / system-user tokens ("EAA...")  -> graph.facebook.com, /{IG_USER_ID}/media
 
     Docs: https://developers.facebook.com/docs/instagram-platform
-    Meta renames/deprecates insight metrics from time to time, so insights are
-    requested per metric group and missing metrics are treated as 0 instead of failing.
+    Meta renames/deprecates insight metrics from time to time, so each metric is
+    requested separately and a missing one is treated as 0 instead of failing.
     """
 
-    BASE = "https://graph.instagram.com"
     MEDIA_FIELDS = "id,caption,media_type,media_product_type,timestamp,permalink,like_count,comments_count"
     INSIGHT_METRICS = ["reach", "saved", "shares", "views"]
     TYPE_MAP = {"CAROUSEL_ALBUM": "CAROUSEL", "IMAGE": "IMAGE", "VIDEO": "REEL"}
 
-    def __init__(self, access_token: str | None = None, api_version: str | None = None):
-        self.token = access_token or os.environ.get("IG_ACCESS_TOKEN")
+    def __init__(self, access_token: str | None = None, api_version: str | None = None, user_id: str | None = None):
+        self.token = (access_token or os.environ.get("IG_ACCESS_TOKEN") or "").strip()
         if not self.token:
             raise ValueError("IG_ACCESS_TOKEN is not set - add it to .env or use --source mock")
         self.version = api_version or os.environ.get("IG_API_VERSION", "v23.0")
         self.session = requests.Session()
+        if self.token.startswith("IG"):
+            self.base, self.user = "https://graph.instagram.com", "me"
+        else:
+            self.base = "https://graph.facebook.com"
+            self.user = user_id or os.environ.get("IG_USER_ID")
+            if not self.user:
+                raise ValueError("This is a Facebook-style token: set IG_USER_ID in .env "
+                                 "(the Instagram account ID shown in the Meta app dashboard)")
 
     def _get(self, path: str, **params) -> dict:
-        url = path if path.startswith("http") else f"{self.BASE}/{self.version}/{path}"
+        url = path if path.startswith("http") else f"{self.base}/{self.version}/{path}"
         params.setdefault("access_token", self.token)
         resp = self.session.get(url, params=params, timeout=30)
         if resp.status_code != 200:
@@ -74,7 +86,7 @@ class InstagramSource(DataSource):
 
     def fetch_posts(self, limit: int = 100) -> List[Post]:
         posts: List[Post] = []
-        page = self._get("me/media", fields=self.MEDIA_FIELDS, limit=min(limit, 50))
+        page = self._get(f"{self.user}/media", fields=self.MEDIA_FIELDS, limit=min(limit, 50))
         while True:
             for m in page.get("data", []):
                 media_type = "REEL" if m.get("media_product_type") == "REELS" else self.TYPE_MAP.get(m.get("media_type"), m.get("media_type"))

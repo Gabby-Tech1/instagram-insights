@@ -44,6 +44,25 @@ def test_analysis_finds_planted_patterns():
     assert rule_based_insights(stats)
 
 
+def test_tiny_reach_gives_no_engagement_rate():
+    # Meta reports reach 0-1 on some older posts; that must not become a 1500% ER
+    p = Post(id="1", media_type="REEL", caption="", timestamp=datetime(2026, 1, 1), likes=13, saves=2, reach=1)
+    assert p.engagement_rate is None
+
+
+def test_small_account_gets_testing_plan_not_fake_patterns():
+    posts = [
+        Post(id="1", media_type="REEL", caption="", timestamp="2023-06-25T07:57:35+0000", likes=13, saves=2, reach=1),
+        Post(id="2", media_type="IMAGE", caption="", timestamp="2023-06-24T22:56:32+0000", likes=5, reach=0),
+    ]
+    posts = [Post.from_dict(p.__dict__) for p in posts]  # exercises timestamp parsing
+    stats = analyse(posts)
+    assert stats["overview"]["enough_data"] is False
+    assert rule_based_insights(stats) == []
+    recs = recommend(stats, use_llm=False)
+    assert "testing plan" in recs["summary"]
+
+
 def test_rule_based_recommendations_without_llm():
     recs = recommend(analyse(MockSource().fetch_posts(500)), use_llm=False)
     assert recs["engine"] == "rule-based"

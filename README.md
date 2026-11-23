@@ -18,6 +18,14 @@ python main.py run
 
 This runs on `data/sample_posts.json`, 96 posts from a fictional coffee brand, and writes `output/report.md` and `output/report.json`.
 
+### Web dashboard
+
+```bash
+uvicorn api:app --port 8000
+```
+
+Open http://127.0.0.1:8000. Pick **Sample data** or **My Instagram**, click **Sync posts**, add a line about the account, and click **Analyse & recommend**. The page shows the headline numbers, the recommendations (with copyable caption drafts), key insights, a breakdown by format, topic, day, time, hashtags, caption length and call to action, and the top posts. It's one HTML file (`static/index.html`) served by the API, with no build step.
+
 To get AI recommendations, copy `.env.example` to `.env` and set `ANTHROPIC_API_KEY`. Without a key, or if the API call fails, the system uses rule-based recommendations, so it always produces a report.
 
 ## Using a real Instagram account
@@ -25,7 +33,9 @@ To get AI recommendations, copy `.env.example` to `.env` and set `ANTHROPIC_API_
 1. The account must be a **Business or Creator** account.
 2. Create an app at [developers.facebook.com](https://developers.facebook.com/) and add the **Instagram API with Instagram Login** product.
 3. Add the account as an Instagram tester and accept the invite in the Instagram app. While the app is in development mode, you don't need app review for accounts you manage.
-4. Generate an access token with the `instagram_business_basic` and `instagram_business_manage_insights` permissions, and put it in `.env` as `IG_ACCESS_TOKEN`.
+4. Generate an access token and put it in `.env` as `IG_ACCESS_TOKEN`. In **Use cases → Customize → API setup**, select a login configuration that includes the insights permission, then click **Generate token** next to the account. Both token types Meta issues are supported:
+   - Tokens starting with `IG` (Instagram Login) need nothing else.
+   - Tokens starting with `EA` (Facebook or system-user tokens, which never expire) also need `IG_USER_ID` in `.env`. That's the numeric Instagram account ID shown next to the account in the dashboard.
 5. Run:
 
 ```bash
@@ -42,7 +52,7 @@ Meta changes insight metric names from time to time. Each metric is requested se
 | `python main.py fetch --source instagram --limit 200` | Only pull and store posts. Re-runs refresh metrics, with no duplicates |
 | `python main.py analyse --context "..."` | Analyse stored posts and generate the report |
 | `python main.py analyse --no-llm` | Rule-based recommendations only |
-| `uvicorn api:app --reload` | HTTP API: `POST /sync`, `GET /stats`, `GET /recommendations`. Docs at `/docs` |
+| `uvicorn api:app --reload` | Dashboard at `/`, plus the JSON API: `POST /api/sync`, `GET /api/stats`, `GET /api/recommendations`, `GET /api/status` (each takes `?source=mock\|instagram`). Docs at `/docs` |
 | `pytest` | Run the tests |
 
 ## What it analyses

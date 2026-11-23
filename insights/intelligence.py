@@ -74,7 +74,11 @@ Rules:
 - Caption drafts should match the account's voice, shown in its top posts, and include a call to action
   where the data supports one.
 - Be concrete and brief. No generic social media advice that the data doesn't support.
-- Give 5 recommendations, ordered by expected impact, and up to 3 things to stop doing."""
+- Give 5 recommendations, ordered by expected impact, and up to 3 things to stop doing.
+- If `overview.enough_data` is false, the account has too few posts for reliable patterns. Say so plainly
+  in the summary, do not present any pattern as proven, and make the recommendations a 4-week testing plan
+  (which formats, topics and times to try, and how many posts each) so the account builds the data it needs.
+  In `evidence`, state what little the data does show and that it is not yet conclusive."""
 
 
 def _has_credentials() -> bool:
@@ -123,17 +127,54 @@ def _recommend_with_claude(stats: Dict, insights: List[Dict], account_context: s
     return json.loads(text)
 
 
+def _usable(stats: Dict, key: str, lift: str) -> List[Dict]:
+    with_value = [s for s in stats[key] if s[lift] is not None]
+    return [s for s in with_value if s["reliable"]] or with_value
+
+
 def _best(stats: Dict, key: str, lift: str = "lift") -> Dict:
-    segs = [s for s in stats[key] if s["reliable"]] or stats[key]
-    return max(segs, key=lambda s: s[lift])
+    return max(_usable(stats, key, lift), key=lambda s: s[lift])
 
 
 def _worst(stats: Dict, key: str) -> Dict:
-    segs = [s for s in stats[key] if s["reliable"]] or stats[key]
-    return min(segs, key=lambda s: s["lift"])
+    return min(_usable(stats, key, "lift"), key=lambda s: s["lift"])
+
+
+def _testing_plan(stats: Dict) -> Dict:
+    """For new or small accounts: no fake patterns, just a plan to collect real data."""
+    o = stats["overview"]
+    have = o["posts_with_engagement_data"]
+    seen = ", ".join(f"{p['media_type'].lower()} ({p['likes']} likes, reach {p['reach']})" for p in stats["top_posts"][:3])
+    note = f"Only {have} post(s) with usable reach data (10+ needed). So far: {seen or 'no posts'}."
+
+    def step(title, fmt, topic, when, why, priority):
+        return {"title": title, "format": fmt, "topic": topic, "best_day": when[0], "best_time": when[1],
+                "caption_draft": "", "hashtags": [], "why": why, "evidence": note, "priority": priority}
+
+    return {
+        "summary": f"{o['posts_analysed']} posts found, but only {have} have enough reach data to measure. "
+                   f"That's too few to find reliable patterns, so this is a 4-week testing plan to build that data. "
+                   f"Run the analysis again after about 12 posts.",
+        "key_insights": [{"insight": "Not enough posts yet for reliable patterns.", "evidence": note}],
+        "recommendations": [
+            step("Post 3 times a week for 4 weeks", "REEL", "mixed", ("Tue / Thu / Sat", "vary times"),
+                 "Consistent posting creates the sample size the analysis needs.", "high"),
+            step("Split formats evenly: Reels vs carousels", "REEL", "mixed", ("any", "any"),
+                 "Comparing formats on your own audience shows which drives reach and which drives engagement.", "high"),
+            step("Rotate 3 content themes", "CAROUSEL", "your niche: tips, behind the scenes, results", ("any", "any"),
+                 "Rotating themes lets topic performance be compared fairly.", "medium"),
+            step("Alternate morning and evening posting", "REEL", "mixed", ("any", "morning vs 18-22"),
+                 "Shows when your audience is actually active.", "medium"),
+            step("End every caption with a clear ask", "CAROUSEL", "any", ("any", "any"),
+                 "Save / comment / share prompts give comparable engagement signals.", "low"),
+        ],
+        "stop_doing": [],
+    }
 
 
 def _recommend_with_rules(stats: Dict, insights: List[Dict]) -> Dict:
+    if not stats["overview"]["enough_data"]:
+        return _testing_plan(stats)
     topics = sorted((s for s in stats["by_topic"] if s["reliable"]), key=lambda s: s["lift"], reverse=True)
     eng_fmt, reach_fmt = _best(stats, "by_format"), _best(stats, "by_format", "reach_lift")
     day = _best(stats, "by_weekday", "reach_lift")

@@ -4,12 +4,16 @@ from __future__ import annotations
 from typing import Dict, List
 
 
+def _f(v, spec: str, suffix: str = "") -> str:
+    return "-" if v is None else f"{v:{spec}}{suffix}"
+
+
 def _table(segs: List[Dict]) -> str:
     lines = ["| Segment | Posts | Avg ER | ER lift | Avg reach | Reach lift |", "|---|---|---|---|---|---|"]
     for s in segs:
         flag = "" if s["reliable"] else " *"
-        lines.append(f"| {s['segment']}{flag} | {s['posts']} | {s['avg_engagement_rate']:.2%} | "
-                     f"{s['lift']:.2f}x | {s['avg_reach']:,.0f} | {s['reach_lift']:.2f}x |")
+        lines.append(f"| {s['segment']}{flag} | {s['posts']} | {_f(s['avg_engagement_rate'], '.2%')} | "
+                     f"{_f(s['lift'], '.2f', 'x')} | {_f(s['avg_reach'], ',.0f')} | {_f(s['reach_lift'], '.2f', 'x')} |")
     return "\n".join(lines)
 
 
@@ -19,9 +23,9 @@ def render_markdown(stats: Dict, recs: Dict) -> str:
         "# Instagram Content Report",
         "",
         f"**Period:** {o['date_range']}  ·  **Posts:** {o['posts_analysed']}  ·  "
-        f"**Posting rate:** {o['posts_per_week']:.1f}/week  ·  **Engine:** {recs.get('engine', '-')}",
+        f"**Posting rate:** {_f(o['posts_per_week'], '.1f', '/week')}  ·  **Engine:** {recs.get('engine', '-')}",
         "",
-        f"**Avg engagement rate:** {o['avg_engagement_rate']:.2%}  ·  **Avg reach:** {o['avg_reach']:,.0f}  ·  "
+        f"**Avg engagement rate:** {_f(o['avg_engagement_rate'], '.2%')}  ·  **Avg reach:** {_f(o['avg_reach'], ',.0f')}  ·  "
         f"**Total interactions:** {o['total_interactions']:,}",
         "",
         "## Summary",
@@ -53,6 +57,6 @@ def render_markdown(stats: Dict, recs: Dict) -> str:
 
     out += ["## Top posts", "| Post | Format | Topic | Posted | ER | Reach |", "|---|---|---|---|---|---|"]
     for p in stats["top_posts"]:
-        out.append(f"| [{p['caption'][:50]}]({p['permalink']}) | {p['media_type']} | {p['topic']} | {p['posted']} | "
-                   f"{p['engagement_rate']:.2%} | {p['reach']:,} |")
+        out.append(f"| [{p['caption'][:50] or '(no caption)'}]({p['permalink']}) | {p['media_type']} | {p['topic']} | {p['posted']} | "
+                   f"{_f(p['engagement_rate'], '.2%')} | {p['reach']:,} |")
     return "\n".join(out) + "\n"

@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Instagram Insights</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --text: #1a1d21; --muted: #5f6b7a; --border: #e3e6ea;
+    --accent: #c13584; --accent-weak: #fbe9f3; --good: #1a7f4b; --bad: #b42318; --bar: #d6408f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #111317; --card: #1a1d23; --text: #e8eaed; --muted: #9aa3ae; --border: #2c3139;
+            --accent: #f06bb0; --accent-weak: #3a1f2f; --good: #4cc38a; --bad: #f97066; --bar: #e0569f; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  h1 { font-size: 22px; margin: 0; }
+  h2 { font-size: 17px; margin: 0 0 12px; }
+  .pills { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill { font-size: 12px; padding: 3px 10px; border-radius: 99px; border: 1px solid var(--border); color: var(--muted); background: var(--card); }
+  .pill.on { color: var(--good); border-color: currentColor; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 16px; }
+  .controls { display: grid; grid-template-columns: auto 1fr; gap: 12px 16px; align-items: center; }
+  .controls label.k { color: var(--muted); font-size: 13px; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; background: transparent; color: var(--text); }
+  .seg button.active { background: var(--accent); color: #fff; }
+  input[type=text] { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
+  button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button:disabled { opacity: .55; cursor: wait; }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .note { color: var(--muted); font-size: 13px; }
+  .msg { padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; }
+  .msg.err { background: color-mix(in srgb, var(--bad) 12%, transparent); color: var(--bad); }
+  .msg.ok { background: color-mix(in srgb, var(--good) 12%, transparent); color: var(--good); }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+  .kpi .v { font-size: 22px; font-weight: 650; }
+  .kpi .l { color: var(--muted); font-size: 13px; }
+  .recs { display: grid; gap: 12px; }
+  .rec { border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .rec h3 { margin: 0 0 6px; font-size: 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .badge { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; padding: 2px 8px; border-radius: 99px; background: var(--accent-weak); color: var(--accent); }
+  .meta { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
+  .rec p { margin: 4px 0; }
+  .evidence { font-size: 13px; color: var(--muted); border-left: 3px solid var(--accent); padding-left: 10px; margin-top: 8px; }
+  .caption { background: var(--bg); border-radius: 8px; padding: 10px; margin-top: 8px; font-size: 14px; white-space: pre-wrap; }
+  .caption button { float: right; font-size: 12px; padding: 2px 8px; margin-left: 8px; }
+  ul { margin: 0; padding-left: 20px; }
+  li { margin: 4px 0; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  th { color: var(--muted); font-weight: 500; font-size: 13px; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .bar { display: flex; align-items: center; gap: 8px; min-width: 120px; }
+  .bar span { display: block; height: 8px; border-radius: 4px; background: var(--bar); }
+  .low { color: var(--muted); }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button { font-size: 13px; padding: 5px 10px; }
+  .tabs button.active { background: var(--accent-weak); border-color: var(--accent); color: var(--accent); }
+  .scroll { overflow-x: auto; }
+  a { color: var(--accent); }
+  .hidden { display: none; }
+  @media (max-width: 720px) { .two, .controls { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Instagram Insights</h1>
+    <div class="pills" id="pills"></div>
+  </header>
+
+  <section class="card">
+    <div class="controls">
+      <label class="k">Data source</label>
+      <div class="seg" id="sourceSeg">
+        <button data-source="mock" class="active">Sample data</button>
+        <button data-source="instagram">My Instagram</button>
+      </div>
+      <label class="k" for="context">About the account</label>
+      <input type="text" id="context" placeholder="e.g. Specialty coffee roaster selling online. Goal: more website sales">
+      <span></span>
+      <div class="actions">
+        <button id="syncBtn">Sync posts</button>
+        <button id="analyseBtn" class="primary">Analyse &amp; recommend</button>
+        <label class="note"><input type="checkbox" id="useLlm" checked> Use AI</label>
+        <span class="note" id="stored"></span>
+      </div>
+    </div>
+  </section>
+
+  <div id="msg"></div>
+
+  <div id="results" class="hidden">
+    <section class="kpis" id="kpis" style="margin-bottom:16px"></section>
+
+    <section class="card hidden" id="recsCard">
+      <h2>Recommended content <span class="note" id="engine"></span></h2>
+      <p id="summary" style="margin-top:0"></p>
+      <div class="recs" id="recs"></div>
+    </section>
+
+    <div class="two">
+      <section class="card hidden" id="insightsCard"><h2>Key insights</h2><ul id="insights"></ul></section>
+      <section class="card hidden" id="stopCard"><h2>Stop doing</h2><ul id="stop"></ul></section>
+    </div>
+
+    <section class="card">
+      <h2>Performance breakdown</h2>
+      <div class="tabs" id="tabs"></div>
+      <div class="scroll"><table id="breakdown"></table></div>
+      <p class="note">ER = engagement rate (likes + comments + saves + shares ÷ reach). Lift compares a group with your account average: 1.30x means 30% better. Greyed rows have fewer than 3 posts and aren't used for recommendations.</p>
+    </section>
+
+    <section class="card">
+      <h2>Top posts</h2>
+      <div class="scroll"><table id="topPosts"></table></div>
+    </section>
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const pct = (v) => v == null ? "–" : (v * 100).toFixed(2) + "%";
+const num = (v) => v == null ? "–" : Math.round(v).toLocaleString();
+const x = (v) => v == null ? "–" : v.toFixed(2) + "x";
+const label = (s) => String(s).replace(/_/g, " ");
+
+const DIMENSIONS = [
+  ["by_format", "Format"], ["by_topic", "Topic"], ["by_weekday", "Day"], ["by_time_window", "Time of day"],
+  ["by_hashtag_count", "Hashtags"], ["by_caption_length", "Caption length"], ["by_cta", "Call to action"],
+];
+let source = "mock", stats = null, dim = "by_format", status = null;
+
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.detail || `Request failed (${res.status})`);
+  return body;
+}
+
+function show(text, kind = "ok") {
+  $("msg").innerHTML = text ? `<div class="msg ${kind}">${esc(text)}</div>` : "";
+}
+
+function busy(btn, on, text) {
+  btn.disabled = on;
+  if (on) { btn.dataset.label = btn.textContent; btn.textContent = text; }
+  else if (btn.dataset.label) btn.textContent = btn.dataset.label;
+}
+
+async function loadStatus() {
+  status = await api("/api/status");
+  $("pills").innerHTML =
+    `<span class="pill ${status.llm ? "on" : ""}">AI: ${status.llm ? "on" : "off (rule-based)"}</span>` +
+    `<span class="pill ${status.instagram ? "on" : ""}">Instagram: ${status.instagram ? "connected" : "not connected"}</span>`;
+  $("useLlm").checked = status.llm;
+  $("useLlm").disabled = !status.llm;
+  const n = status.stored[source];
+  $("stored").textContent = n ? `${n} posts stored` : "No posts stored yet. Sync first.";
+}
+
+async function sync() {
+  busy($("syncBtn"), true, "Syncing…");
+  show(source === "instagram" ? "Pulling posts and insights from Instagram…" : "Loading sample data…");
+  try {
+    const r = await api(`/api/sync?source=${source}`, { method: "POST" });
+    show(`Synced ${r.stored} posts.`);
+    await loadStatus();
+    await loadStats();
+  } catch (e) { show(e.message, "err"); }
+  busy($("syncBtn"), false);
+}
+
+async function loadStats() {
+  try {
+    stats = await api(`/api/stats?source=${source}`);
+    renderStats();
+    $("results").classList.remove("hidden");
+  } catch (e) {
+    stats = null;
+    $("results").classList.add("hidden");
+  }
+}
+
+async function analyse() {
+  if (!status.stored[source]) { await sync(); if (!stats) return; }
+  const useLlm = $("useLlm").checked;
+  busy($("analyseBtn"), true, useLlm ? "Thinking… (up to a minute)" : "Analysing…");
+  show("");
+  try {
+    if (!stats) await loadStats();
+    const q = new URLSearchParams({ source, context: $("context").value, use_llm: useLlm });
+    renderRecs(await api(`/api/recommendations?${q}`));
+  } catch (e) { show(e.message, "err"); }
+  busy($("analyseBtn"), false);
+}
+
+function renderStats() {
+  const o = stats.overview;
+  const kpis = [
+    [o.posts_analysed, "Posts analysed"],
+    [pct(o.avg_engagement_rate), "Avg engagement rate"],
+    [num(o.avg_reach), "Avg reach"],
+    [num(o.total_interactions), "Total interactions"],
+    [o.posts_per_week == null ? "–" : o.posts_per_week.toFixed(1), "Posts per week"],
+  ];
+  $("kpis").innerHTML = kpis.map(([v, l]) => `<div class="kpi"><div class="v">${esc(v)}</div><div class="l">${esc(l)}</div></div>`).join("");
+  if (!o.enough_data) show(`Only ${o.posts_with_engagement_data} post(s) have enough reach data to measure. Recommendations will be a testing plan, not proven patterns.`, "err");
+
+  $("tabs").innerHTML = DIMENSIONS.map(([k, l]) => `<button data-dim="${k}" class="${k === dim ? "active" : ""}">${l}</button>`).join("");
+  renderBreakdown();
+
+  $("topPosts").innerHTML = `<tr><th>Post</th><th>Format</th><th>Topic</th><th>Posted (UTC)</th><th>ER</th><th>Reach</th><th>Saves</th></tr>` +
+    stats.top_posts.map((p) => `<tr>
+      <td><a href="${esc(p.permalink)}" target="_blank" rel="noopener">${esc(p.caption.slice(0, 60) || "(no caption)")}</a></td>
+      <td>${esc(p.media_type)}</td><td>${esc(label(p.topic))}</td><td class="num">${esc(p.posted)}</td>
+      <td class="num">${pct(p.engagement_rate)}</td><td class="num">${num(p.reach)}</td><td class="num">${num(p.saves)}</td></tr>`).join("");
+}
+
+function renderBreakdown() {
+  const rows = stats[dim];
+  const max = Math.max(...rows.map((r) => Math.max(r.lift || 0, r.reach_lift || 0)), 1);
+  const bar = (v) => v == null ? "–" : `<div class="bar"><span style="width:${(v / max) * 100}px"></span>${x(v)}</div>`;
+  $("breakdown").innerHTML = `<tr><th>Group</th><th>Posts</th><th>Avg ER</th><th>Engagement lift</th><th>Avg reach</th><th>Reach lift</th></tr>` +
+    rows.map((r) => `<tr class="${r.reliable ? "" : "low"}">
+      <td>${esc(label(r.segment))}</td><td class="num">${r.posts}</td><td class="num">${pct(r.avg_engagement_rate)}</td>
+      <td>${bar(r.lift)}</td><td class="num">${num(r.avg_reach)}</td><td>${bar(r.reach_lift)}</td></tr>`).join("");
+}
+
+function renderRecs(r) {
+  $("engine").textContent = `· ${r.engine}`;
+  $("summary").textContent = r.summary;
+  $("recs").innerHTML = r.recommendations.map((rec, i) => `
+    <div class="rec">
+      <h3>${i + 1}. ${esc(rec.title)} <span class="badge">${esc(rec.priority)}</span></h3>
+      <div class="meta">${esc(rec.format)} · ${esc(label(rec.topic))} · ${esc(rec.best_day)}, ${esc(rec.best_time)}</div>
+      <p>${esc(rec.why)}</p>
+      ${rec.caption_draft ? `<div class="caption"><button data-copy="${i}">Copy</button>${esc(rec.caption_draft)}</div>` : ""}
+      ${rec.hashtags?.length ? `<p class="note">${rec.hashtags.map((h) => "#" + esc(h.replace(/^#/, ""))).join(" ")}</p>` : ""}
+      <div class="evidence">${esc(rec.evidence)}</div>
+    </div>`).join("");
+  $("recs").onclick = (e) => {
+    const i = e.target.dataset.copy;
+    if (i == null) return;
+    const rec = r.recommendations[i];
+    navigator.clipboard?.writeText([rec.caption_draft, (rec.hashtags || []).map((h) => "#" + h.replace(/^#/, "")).join(" ")].filter(Boolean).join("\n\n"));
+    e.target.textContent = "Copied";
+  };
+  $("insights").innerHTML = r.key_insights.map((k) => `<li>${esc(k.insight)} <span class="note">(${esc(k.evidence)})</span></li>`).join("");
+  $("stop").innerHTML = (r.stop_doing || []).map((s) => `<li>${esc(s)}</li>`).join("");
+  $("recsCard").classList.remove("hidden");
+  $("insightsCard").classList.toggle("hidden", !r.key_insights.length);
+  $("stopCard").classList.toggle("hidden", !(r.stop_doing || []).length);
+  $("recsCard").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+$("sourceSeg").onclick = async (e) => {
+  const s = e.target.dataset.source;
+  if (!s || s === source) return;
+  source = s;
+  document.querySelectorAll("#sourceSeg button").forEach((b) => b.classList.toggle("active", b.dataset.source === s));
+  ["recsCard", "insightsCard", "stopCard"].forEach((id) => $(id).classList.add("hidden"));
+  show("");
+  await loadStatus();
+  await loadStats();
+};
+$("tabs").onclick = (e) => {
+  if (!e.target.dataset.dim) return;
+  dim = e.target.dataset.dim;
+  document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("active", b.dataset.dim === dim));
+  renderBreakdown();
+};
+$("syncBtn").onclick = sync;
+$("analyseBtn").onclick = analyse;
+
+loadStatus().then(loadStats).catch((e) => show(e.message, "err"));
+</script>
+</body>
+</html>
