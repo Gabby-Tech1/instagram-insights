@@ -2,9 +2,11 @@
 so the rest of the pipeline does not care where the data came from."""
 from __future__ import annotations
 
+import csv
 import json
 import logging
 import os
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List
@@ -64,22 +66,38 @@ class InstagramSource(DataSource):
                 raise ValueError("This is a Facebook-style token: set IG_USER_ID in .env "
                                  "(the Instagram account ID shown in the Meta app dashboard)")
 
-    def _get(self, path: str, **params) -> dict:
-        url = path if path.startswith("http") else f"{self.base}/{self.version}/{path}"
-        params.setdefault("access_token", self.token)
-        resp = self.session.get(url, params=params, timeout=30)
-        if resp.status_code != 200:
-            raise RuntimeError(f"Instagram API {resp.status_code}: {resp.text[:300]}")
-        return resp.json()
+    def _get(self, path: str, retries: int = 3, **params) -> dict:
+        if path.startswith("http"):  # paging URLs already carry the token and params
+            url, params = path, {}
+        else:
+            url = f"{self.base}/{self.version}/{path}"
+            params.setdefault("access_token", self.token)
+        for attempt in range(retries + 1):
+            resp = self.session.get(url, params=params, timeout=30)
+            # Retry rate limits and server errors with backoff; fail fast on everything else.
+            if resp.status_code in (429, 500, 502, 503) and attempt < retries:
+                time.sleep(2 ** attempt)
+                continue
+            if resp.status_code != 200:
+                raise RuntimeError(f"Instagram API {resp.status_code}: {resp.text[:300].replace(self.token, '<token>')}")
+            return resp.json()
+        raise RuntimeError("Instagram API: retries exhausted")  # pragma: no cover
+
+    @staticmethod
+    def _parse_insights(data: list) -> dict:
+        return {d["name"]: d["values"][0]["value"] for d in data if d.get("values")}
 
     def _insights(self, media_id: str) -> dict:
+        # One call for all metrics; if Meta rejects one (renamed/unsupported for this media
+        # type), fall back to asking for each separately so the others still come through.
+        try:
+            return self._parse_insights(self._get(f"{media_id}/insights", metric=",".join(self.INSIGHT_METRICS)).get("data", []))
+        except RuntimeError as e:
+            log.debug("batched insights failed for %s, retrying per metric: %s", media_id, e)
         values: dict = {}
-        # Ask for each metric separately so one unsupported metric doesn't fail the rest.
         for metric in self.INSIGHT_METRICS:
             try:
-                data = self._get(f"{media_id}/insights", metric=metric).get("data", [])
-                if data:
-                    values[metric] = data[0]["values"][0]["value"]
+                values.update(self._parse_insights(self._get(f"{media_id}/insights", metric=metric).get("data", [])))
             except RuntimeError as e:
                 log.debug("metric %s unavailable for %s: %s", metric, media_id, e)
         return values
@@ -112,9 +130,41 @@ class InstagramSource(DataSource):
             page = self._get(next_url)
 
 
+class CSVSource(DataSource):
+    """Imports posts from a CSV export (e.g. from a social media tool or a spreadsheet).
+
+    Shows how another source plugs in: map its columns onto `Post` and the rest of
+    the pipeline is unchanged. Required columns: id, media_type, timestamp.
+    Optional: caption, permalink, likes, comments, saves, shares, reach, views.
+    """
+
+    INT_COLS = ("likes", "comments", "saves", "shares", "reach", "views")
+
+    def __init__(self, path: str | None = None):
+        if not path:
+            raise ValueError("CSV source needs a file path (--path posts.csv)")
+        self.path = Path(path)
+
+    def fetch_posts(self, limit: int = 100) -> List[Post]:
+        posts: List[Post] = []
+        with self.path.open(newline="", encoding="utf-8") as f:
+            for i, row in enumerate(csv.DictReader(f), start=2):
+                missing = [c for c in ("id", "media_type", "timestamp") if not row.get(c)]
+                if missing:
+                    raise ValueError(f"{self.path.name} line {i}: missing {', '.join(missing)}")
+                data = {k: row.get(k) or "" for k in ("id", "caption", "timestamp", "permalink")}
+                data["media_type"] = row["media_type"].strip().upper()
+                data.update({k: int(float(row.get(k) or 0)) for k in self.INT_COLS})
+                posts.append(Post.from_dict(data))
+                if len(posts) >= limit:
+                    break
+        return posts
+
+
+SOURCES = {"mock": MockSource, "instagram": InstagramSource, "csv": CSVSource}
+
+
 def get_source(name: str, **kwargs) -> DataSource:
-    if name == "mock":
-        return MockSource(**kwargs)
-    if name == "instagram":
-        return InstagramSource(**kwargs)
-    raise ValueError(f"Unknown source: {name}")
+    if name not in SOURCES:
+        raise ValueError(f"Unknown source: {name} (choose from {', '.join(SOURCES)})")
+    return SOURCES[name](**kwargs)

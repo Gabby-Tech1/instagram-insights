@@ -1,38 +1,46 @@
 """Turns raw posts into the stats the intelligence layer reasons over.
 
-Every segment reports `lift` = segment avg engagement rate / overall avg, so
-insights can be phrased as "X performs 1.4x better than your average".
+Metric choices (full reasoning in TECHNICAL.md):
+- Engagement rate (ER) = (likes + comments + saves + shares) / reach. Reach, not
+  followers, because it measures the people who actually saw the post.
+- Reach is tracked separately: ER says whether viewers cared, reach says how many
+  people saw it. Timing and hashtags mostly move reach; topic and format move both.
+- Every group reports `lift` = group average / account average, so insights read
+  as "tutorials get 1.33x your average engagement".
+- Groups with fewer than MIN_SAMPLE posts are flagged unreliable and never used
+  for recommendations; accounts with fewer than MIN_POSTS_FOR_RECOMMENDATIONS
+  measurable posts get a testing plan instead of patterns.
 """
 from __future__ import annotations
 
-from typing import Dict, List
+import os
+import re
+from typing import Dict, List, Optional
 
 import pandas as pd
 
 from .models import Post
+from .tagging import caption_body, classify_topic, tags_for  # noqa: F401  (classify_topic re-exported)
 
-MIN_SAMPLE = 3  # ignore segments with fewer posts - too noisy to recommend from
-MIN_POSTS_FOR_RECOMMENDATIONS = 10  # account-level minimum for data-driven advice
+MIN_SAMPLE = 3
+MIN_POSTS_FOR_RECOMMENDATIONS = 10
 
-# Lightweight keyword topic tagger. Good enough for a first pass; the LLM layer
-# can refine themes, and it's easy to swap for an LLM classifier later.
-TOPIC_KEYWORDS = {
-    "tutorial": ["how to", "tips", "step-by-step", "guide", "tutorial", "learn the", "method"],
-    "behind_the_scenes": ["behind the scenes", "meet the team", "a day at", "inside our"],
-    "promo": ["% off", "sale", "discount", "deals", "free shipping", "ends sunday"],
-    "product": ["new ", "introducing", "just landed", "drop", "now in"],
-    "community": ["your setups", "reposting", "spotlight", "you voted", "customer"],
-}
-CTA_KEYWORDS = ["save this", "tag a friend", "comment", "link in bio", "share this", "dm us"]
+CTA_KEYWORDS = ["save this", "tag a friend", "comment", "link in bio", "share this", "dm us", "follow for"]
 WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+EMOJI_RE = re.compile("[\U0001F300-\U0001FAFF☀-➿]")
 
-
-def classify_topic(caption: str) -> str:
-    text = (caption or "").lower()
-    for topic, words in TOPIC_KEYWORDS.items():
-        if any(w in text for w in words):
-            return topic
-    return "other"
+DIMENSIONS = {
+    "by_format": ("media_type", "format"),
+    "by_topic": ("topic", "content topic"),
+    "by_style": ("style", "content style"),
+    "by_weekday": ("weekday", "posting day"),
+    "by_time_window": ("time_window", "posting time"),
+    "by_caption_length": ("caption_length", "caption length"),
+    "by_hashtag_count": ("hashtag_bucket", "hashtag count"),
+    "by_cta": ("cta", "call to action"),
+    "by_question": ("question", "asking a question"),
+    "by_emoji": ("emoji", "emoji use"),
+}
 
 
 def time_window(hour: int) -> str:
@@ -47,31 +55,39 @@ def time_window(hour: int) -> str:
     return "night (22-5)"
 
 
-def to_frame(posts: List[Post]) -> pd.DataFrame:
+def to_frame(posts: List[Post], tags: Optional[Dict] = None, timezone: Optional[str] = None) -> pd.DataFrame:
     rows = []
     for p in posts:
-        body = (p.caption or "").split("#")[0]
+        body = caption_body(p.caption)
+        t = tags_for(p.id, tags, p)
         rows.append({
-            "id": p.id, "media_type": p.media_type, "caption": p.caption, "timestamp": p.timestamp,
+            "id": p.id, "media_type": p.media_type, "caption": p.caption or "", "timestamp": p.timestamp,
             "permalink": p.permalink, "likes": p.likes, "comments": p.comments, "saves": p.saves,
             "shares": p.shares, "reach": p.reach, "views": p.views, "interactions": p.interactions,
-            "engagement_rate": p.engagement_rate, "hashtag_count": len(p.hashtags),
-            "caption_words": len(body.split()), "topic": classify_topic(body),
-            "has_cta": any(k in (p.caption or "").lower() for k in CTA_KEYWORDS),
+            "engagement_rate": p.engagement_rate, "hashtags": p.hashtags, "hashtag_count": len(p.hashtags),
+            "caption_words": len(body.split()), "topic": t["topic"], "style": t["style"],
+            "cta": "with CTA" if any(k in body.lower() for k in CTA_KEYWORDS) else "no CTA",
+            "question": "asks a question" if "?" in body else "no question",
+            "emoji": "uses emoji" if EMOJI_RE.search(body) else "no emoji",
         })
     df = pd.DataFrame(rows)
     if df.empty:
         return df
-    # Posts without usable reach stay in (they still count for volume, reach and
-    # timing) but have no engagement rate; pandas means skip the NaNs.
+    # Posts without usable reach stay in (they count for volume, reach and timing)
+    # but have no engagement rate; pandas means skip the NaNs.
     df["engagement_rate"] = pd.to_numeric(df["engagement_rate"], errors="coerce")
     ts = pd.to_datetime(df["timestamp"])
+    if timezone:  # stored as UTC; posting-time analysis should use the account's local time
+        ts = ts.dt.tz_localize("UTC").dt.tz_convert(timezone).dt.tz_localize(None)
+    df["local_time"] = ts
     df["weekday"] = ts.dt.dayofweek.map(lambda d: WEEKDAYS[d])
     df["hour"] = ts.dt.hour
     df["time_window"] = df["hour"].map(time_window)
-    df["month"] = ts.dt.to_period("M").astype(str)
-    df["caption_length"] = pd.cut(df["caption_words"], [-1, 15, 40, 10_000], labels=["short (<=15 words)", "medium (16-40)", "long (40+)"]).astype(str)
-    df["hashtag_bucket"] = pd.cut(df["hashtag_count"], [-1, 0, 2, 6, 15, 100], labels=["none", "1-2", "3-6", "7-15", "16+"]).astype(str)
+    df["month"] = ts.dt.strftime("%Y-%m")
+    df["caption_length"] = pd.cut(df["caption_words"], [-1, 15, 40, 10_000],
+                                  labels=["short (<=15 words)", "medium (16-40)", "long (40+)"]).astype(str)
+    df["hashtag_bucket"] = pd.cut(df["hashtag_count"], [-1, 0, 2, 6, 15, 100],
+                                  labels=["none", "1-2", "3-6", "7-15", "16+"]).astype(str)
     return df
 
 
@@ -97,7 +113,7 @@ def _round(d: Dict) -> Dict:
         if isinstance(v, float) and pd.isna(v):
             out[k] = None  # keeps the JSON valid (no NaN)
         elif isinstance(v, float):
-            out[k] = round(v, 4 if "rate" in k else 2)
+            out[k] = round(float(v), 4 if ("rate" in k or "change" in k) else 2)
         elif hasattr(v, "item"):
             out[k] = v.item()
         else:
@@ -107,69 +123,102 @@ def _round(d: Dict) -> Dict:
 
 def _post_summary(r: pd.Series) -> Dict:
     return {
-        "id": r["id"], "media_type": r["media_type"], "topic": r["topic"],
-        "posted": f"{r['weekday']} {int(r['hour']):02d}:00",
+        "id": r["id"], "media_type": r["media_type"], "topic": r["topic"], "style": r["style"],
+        "posted": f"{r['local_time']:%Y-%m-%d} {r['weekday']} {int(r['hour']):02d}:00",
         "engagement_rate": None if pd.isna(r["engagement_rate"]) else round(float(r["engagement_rate"]), 4),
-        "reach": int(r["reach"]), "likes": int(r["likes"]),
-        "saves": int(r["saves"]), "shares": int(r["shares"]), "comments": int(r["comments"]),
-        "caption": (r["caption"] or "").split("\n")[0][:160], "permalink": r["permalink"],
+        "reach": int(r["reach"]), "likes": int(r["likes"]), "comments": int(r["comments"]),
+        "saves": int(r["saves"]), "shares": int(r["shares"]), "views": int(r["views"]),
+        "hashtags": list(r["hashtags"])[:10],
+        "caption": caption_body(r["caption"]).split("\n")[0][:160], "permalink": r["permalink"],
     }
 
 
-def analyse(posts: List[Post]) -> Dict:
-    df = to_frame(posts)
+def _trend(df: pd.DataFrame) -> Dict:
+    """Compares the earlier half of measurable posts with the more recent half."""
+    measured = df.dropna(subset=["engagement_rate"]).sort_values("local_time")
+    if len(measured) < 2 * MIN_SAMPLE:
+        return {"direction": "not enough data"}
+    half = len(measured) // 2
+    early, recent = measured.iloc[:half], measured.iloc[half:]
+    e, r = early["engagement_rate"].mean(), recent["engagement_rate"].mean()
+    er, rr = early["reach"].mean(), recent["reach"].mean()
+    change = r / e - 1 if e else 0.0
+    return _round({
+        "early_period": f"{early['local_time'].min():%Y-%m-%d} to {early['local_time'].max():%Y-%m-%d}",
+        "recent_period": f"{recent['local_time'].min():%Y-%m-%d} to {recent['local_time'].max():%Y-%m-%d}",
+        "early_engagement_rate": e, "recent_engagement_rate": r, "engagement_change": change,
+        "early_avg_reach": er, "recent_avg_reach": rr, "reach_change": rr / er - 1 if er else 0.0,
+        "direction": "up" if change > 0.05 else "down" if change < -0.05 else "flat",
+    })
+
+
+def analyse(posts: List[Post], tags: Optional[Dict] = None, timezone: Optional[str] = None) -> Dict:
+    timezone = timezone if timezone is not None else (os.environ.get("ACCOUNT_TIMEZONE") or None)
+    df = to_frame(posts, tags, timezone)
     if df.empty:
         raise ValueError("No posts to analyse")
 
     span_days = max((df["timestamp"].max() - df["timestamp"].min()).days, 1)
     ranked = df.sort_values(["engagement_rate", "interactions"], ascending=False, na_position="last")
+    measured = ranked.dropna(subset=["engagement_rate"])
     n = min(max(len(df) // 10, 3), len(df))
     with_er = int(df["engagement_rate"].count())
+    reach_total = df["reach"].sum()
+    # Save/share rates only over measurable posts - same rule as ER (reach 1 gave a 200% save rate)
+    m = df.dropna(subset=["engagement_rate"])
+    m_reach = m["reach"].sum()
 
-    by_month = df.groupby("month").agg(posts=("id", "count"), avg_engagement_rate=("engagement_rate", "mean"), avg_reach=("reach", "mean")).reset_index()
+    by_month = df.groupby("month").agg(
+        posts=("id", "count"), avg_engagement_rate=("engagement_rate", "mean"),
+        avg_reach=("reach", "mean"), interactions=("interactions", "sum"),
+    ).reset_index()
 
-    return {
+    stats = {
         "overview": _round({
             "posts_analysed": int(len(df)),
             "posts_with_engagement_data": with_er,
-            # Below this, patterns are noise - recommendations switch to a testing plan.
             "enough_data": with_er >= MIN_POSTS_FOR_RECOMMENDATIONS,
-            "date_range": f"{df['timestamp'].min():%Y-%m-%d} to {df['timestamp'].max():%Y-%m-%d}",
-            "posts_per_week": len(df) / span_days * 7 if span_days >= 14 else None,  # meaningless over a few days
+            "date_range": f"{df['local_time'].min():%Y-%m-%d} to {df['local_time'].max():%Y-%m-%d}",
+            "timezone": timezone or "UTC",
+            "posts_per_week": len(df) / span_days * 7 if span_days >= 14 else None,
             "avg_engagement_rate": df["engagement_rate"].mean(),
             "median_engagement_rate": df["engagement_rate"].median(),
             "avg_reach": df["reach"].mean(),
+            "save_rate": m["saves"].sum() / m_reach if m_reach else None,
+            "share_rate": m["shares"].sum() / m_reach if m_reach else None,
             "total_interactions": int(df["interactions"].sum()),
-            "total_reach": int(df["reach"].sum()),
+            "total_reach": int(reach_total),
         }),
-        "by_format": segment(df, "media_type"),
-        "by_topic": segment(df, "topic"),
-        "by_weekday": segment(df, "weekday"),
-        "by_time_window": segment(df, "time_window"),
-        "by_caption_length": segment(df, "caption_length"),
-        "by_hashtag_count": segment(df, "hashtag_bucket"),
-        "by_cta": segment(df.assign(cta=df["has_cta"].map({True: "with CTA", False: "no CTA"})), "cta"),
+        "trend": _trend(df),
         "monthly_trend": [_round(r) for r in by_month.to_dict("records")],
-        "top_posts": [_post_summary(r) for _, r in ranked.head(n).iterrows()],
-        "bottom_posts": [_post_summary(r) for _, r in ranked.tail(n).iloc[::-1].iterrows()],
+        # Best/worst only among posts we can measure; posts without reach data can't be ranked fairly.
+        "top_posts": [_post_summary(r) for _, r in (measured if len(measured) else ranked).head(n).iterrows()],
+        "bottom_posts": [_post_summary(r) for _, r in measured.tail(min(n, len(measured))).iloc[::-1].iterrows()],
     }
+    for key, (col, _) in DIMENSIONS.items():
+        stats[key] = segment(df, col)
+    return stats
 
 
 def rule_based_insights(stats: Dict) -> List[Dict]:
     """Deterministic, evidence-backed insights. Used on their own when no LLM is
     configured, and handed to the LLM as grounding when one is."""
-    insights = []
+    insights: List[Dict] = []
     if not stats["overview"]["enough_data"]:
         return insights
-    labels = {
-        "by_format": "format", "by_topic": "content topic", "by_weekday": "posting day",
-        "by_time_window": "posting time", "by_caption_length": "caption length",
-        "by_hashtag_count": "hashtag count", "by_cta": "call to action",
-    }
+    t = stats.get("trend", {})
+    if t.get("direction") in ("up", "down"):
+        insights.append({
+            "metric": "trend", "dimension": "over time", "best": t["recent_period"], "worst": t["early_period"],
+            "insight": f"Engagement is {t['direction']} {abs(t['engagement_change']):.0%} recently "
+                       f"({t['recent_engagement_rate']:.2%} vs {t['early_engagement_rate']:.2%} earlier); "
+                       f"reach changed {t['reach_change']:+.0%}.",
+            "lift_gap": round(abs(t["engagement_change"]), 2),
+        })
     # Two lenses: engagement rate (how much people who see it interact) and
-    # reach (how many people see it). Timing and hashtags mostly move reach.
+    # reach (how many people see it).
     for metric, lift_key, word in [("engagement", "lift", "engagement rate"), ("reach", "reach_lift", "reach")]:
-        for key, label in labels.items():
+        for key, (_, label) in DIMENSIONS.items():
             segs = sorted((s for s in stats[key] if s["reliable"] and s[lift_key] is not None),
                           key=lambda s: s[lift_key], reverse=True)
             if len(segs) < 2:
@@ -179,10 +228,7 @@ def rule_based_insights(stats: Dict) -> List[Dict]:
             if gap < 0.15:  # differences this small are noise, not insight
                 continue
             insights.append({
-                "metric": metric,
-                "dimension": label,
-                "best": best["segment"],
-                "worst": worst["segment"],
+                "metric": metric, "dimension": label, "best": best["segment"], "worst": worst["segment"],
                 "insight": f"Best {label} for {word}: {best['segment']} ({best[lift_key]:.2f}x your average, "
                            f"{best['posts']} posts). Weakest: {worst['segment']} ({worst[lift_key]:.2f}x).",
                 "lift_gap": round(gap, 2),

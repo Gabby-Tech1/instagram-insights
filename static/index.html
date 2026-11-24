@@ -6,169 +6,318 @@
 <title>Instagram Insights</title>
 <style>
   :root {
-    --bg: #f6f7f9; --card: #fff; --text: #1a1d21; --muted: #5f6b7a; --border: #e3e6ea;
-    --accent: #c13584; --accent-weak: #fbe9f3; --good: #1a7f4b; --bad: #b42318; --bar: #d6408f;
+    color-scheme: light;
+    --bg: #f4f4f2; --surface: #fcfcfb; --surface-2: #f0efec; --border: #e2e1dc;
+    --text: #0b0b0b; --text-2: #52514e; --muted: #77766f;
+    --accent: #c13584; --accent-ink: #fff; --accent-weak: #fbe9f3;
+    --series: #2a78d6; --pos: #2a78d6; --neg: #e34948; --mid: #c9c8c2;
+    --good: #0b7a0b; --good-bg: #e3f4e3; --warn: #8a5a00; --warn-bg: #fdf1d6; --bad: #b42318; --bad-bg: #fdeceb;
+    --shadow: 0 1px 2px rgb(0 0 0 / .04), 0 2px 8px rgb(0 0 0 / .04);
   }
   @media (prefers-color-scheme: dark) {
-    :root { --bg: #111317; --card: #1a1d23; --text: #e8eaed; --muted: #9aa3ae; --border: #2c3139;
-            --accent: #f06bb0; --accent-weak: #3a1f2f; --good: #4cc38a; --bad: #f97066; --bar: #e0569f; }
+    :root {
+      color-scheme: dark;
+      --bg: #121211; --surface: #1a1a19; --surface-2: #242422; --border: #31312e;
+      --text: #f0efec; --text-2: #c3c2b7; --muted: #8f8e86;
+      --accent: #f06bb0; --accent-ink: #1a0a12; --accent-weak: #3a1f2f;
+      --series: #3987e5; --pos: #3987e5; --neg: #e66767; --mid: #4a4a46;
+      --good: #4cc38a; --good-bg: #16301f; --warn: #e3b341; --warn-bg: #33290f; --bad: #f97066; --bad-bg: #3a1a18;
+      --shadow: none;
+    }
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
-  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-  h1 { font-size: 22px; margin: 0; }
-  h2 { font-size: 17px; margin: 0 0 12px; }
-  .pills { display: flex; gap: 8px; flex-wrap: wrap; }
-  .pill { font-size: 12px; padding: 3px 10px; border-radius: 99px; border: 1px solid var(--border); color: var(--muted); background: var(--card); }
-  .pill.on { color: var(--good); border-color: currentColor; }
-  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 16px; }
-  .controls { display: grid; grid-template-columns: auto 1fr; gap: 12px 16px; align-items: center; }
-  .controls label.k { color: var(--muted); font-size: 13px; }
-  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-  .seg button { border: 0; border-radius: 0; background: transparent; color: var(--text); }
-  .seg button.active { background: var(--accent); color: #fff; }
-  input[type=text] { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
-  button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); cursor: pointer; }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
-  button:disabled { opacity: .55; cursor: wait; }
-  .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-  .note { color: var(--muted); font-size: 13px; }
-  .msg { padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; }
-  .msg.err { background: color-mix(in srgb, var(--bad) 12%, transparent); color: var(--bad); }
-  .msg.ok { background: color-mix(in srgb, var(--good) 12%, transparent); color: var(--good); }
-  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
-  .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
-  .kpi .v { font-size: 22px; font-weight: 650; }
-  .kpi .l { color: var(--muted); font-size: 13px; }
-  .recs { display: grid; gap: 12px; }
-  .rec { border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
-  .rec h3 { margin: 0 0 6px; font-size: 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .badge { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; padding: 2px 8px; border-radius: 99px; background: var(--accent-weak); color: var(--accent); }
-  .meta { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
-  .rec p { margin: 4px 0; }
-  .evidence { font-size: 13px; color: var(--muted); border-left: 3px solid var(--accent); padding-left: 10px; margin-top: 8px; }
-  .caption { background: var(--bg); border-radius: 8px; padding: 10px; margin-top: 8px; font-size: 14px; white-space: pre-wrap; }
-  .caption button { float: right; font-size: 12px; padding: 2px 8px; margin-left: 8px; }
-  ul { margin: 0; padding-left: 20px; }
-  li { margin: 4px 0; }
-  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-  th { color: var(--muted); font-weight: 500; font-size: 13px; }
-  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .bar { display: flex; align-items: center; gap: 8px; min-width: 120px; }
-  .bar span { display: block; height: 8px; border-radius: 4px; background: var(--bar); }
-  .low { color: var(--muted); }
-  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
-  .tabs button { font-size: 13px; padding: 5px 10px; }
-  .tabs button.active { background: var(--accent-weak); border-color: var(--accent); color: var(--accent); }
-  .scroll { overflow-x: auto; }
+  main { max-width: 1120px; margin: 0 auto; padding: 0 16px 80px; }
   a { color: var(--accent); }
-  .hidden { display: none; }
-  @media (max-width: 720px) { .two, .controls { grid-template-columns: 1fr; } }
+  h1 { font-size: 20px; margin: 0; letter-spacing: -.01em; }
+  h2 { font-size: 18px; margin: 0; letter-spacing: -.01em; }
+  h3 { font-size: 15px; margin: 0; }
+  .muted { color: var(--muted); } .small { font-size: 13px; }
+
+  /* top bar + controls */
+  .topbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 20px 0 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .logo { width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg, #f58529, #dd2a7b 50%, #8134af); display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 14px; }
+  .pills { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill { font-size: 12px; padding: 3px 10px; border-radius: 99px; border: 1px solid var(--border); color: var(--text-2); background: var(--surface); display: inline-flex; gap: 6px; align-items: center; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+  .pill.on .dot { background: var(--good); }
+  .controls { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px; display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; box-shadow: var(--shadow); }
+  .seg { display: inline-flex; background: var(--surface-2); border-radius: 10px; padding: 3px; }
+  .seg button { border: 0; background: transparent; color: var(--text-2); padding: 6px 12px; border-radius: 8px; font-weight: 500; }
+  .seg button.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+  input[type=text] { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); font: inherit; }
+  input[type=text]:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .actions { display: flex; gap: 8px; align-items: center; }
+  button { font: inherit; padding: 8px 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+  button:hover { border-color: var(--muted); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  button:disabled { opacity: .55; cursor: progress; }
+  .toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-2); white-space: nowrap; }
+  .status-line { grid-column: 1 / -1; display: flex; gap: 12px; justify-content: space-between; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+  .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .msg { padding: 10px 14px; border-radius: 10px; margin-top: 12px; font-size: 14px; display: flex; gap: 8px; }
+  .msg.err { background: var(--bad-bg); color: var(--bad); }
+  .msg.warn { background: var(--warn-bg); color: var(--warn); }
+  .msg.ok { background: var(--good-bg); color: var(--good); }
+
+  nav.sections { position: sticky; top: 0; z-index: 5; background: var(--bg); display: flex; gap: 4px; padding: 12px 0; margin-top: 8px; overflow-x: auto; }
+  nav.sections a { color: var(--text-2); text-decoration: none; font-size: 14px; padding: 6px 12px; border-radius: 99px; white-space: nowrap; }
+  nav.sections a:hover { background: var(--surface-2); color: var(--text); }
+
+  section.block { margin-top: 18px; scroll-margin-top: 60px; }
+  .block-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; box-shadow: var(--shadow); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+  /* KPIs */
+  .kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+  .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px; box-shadow: var(--shadow); min-width: 0; }
+  .kpi .l { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  .kpi .v { font-size: 26px; font-weight: 650; letter-spacing: -.02em; margin-top: 2px; }
+  .delta { font-size: 12px; font-weight: 600; display: inline-flex; gap: 3px; align-items: center; margin-top: 2px; }
+  .delta.up { color: var(--good); } .delta.down { color: var(--bad); } .delta.flat { color: var(--muted); }
+
+  /* charts */
+  .chart { position: relative; }
+  .chart svg { display: block; width: 100%; overflow: visible; }
+  .chart .gridline { stroke: var(--border); stroke-width: 1; }
+  .chart .axis-text { fill: var(--muted); font-size: 11px; }
+  .chart .line { fill: none; stroke: var(--series); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .chart .area { fill: var(--series); opacity: .08; }
+  .chart .pt { fill: var(--series); stroke: var(--surface); stroke-width: 2; }
+  .chart .cross { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+  .tip { position: fixed; z-index: 50; pointer-events: none; background: var(--text); color: var(--bg); font-size: 12px; line-height: 1.4; padding: 7px 9px; border-radius: 8px; max-width: 260px; opacity: 0; transition: opacity .08s; }
+  .tip.show { opacity: 1; }
+  .tip b { font-weight: 600; }
+
+  /* recommendations */
+  .summary { font-size: 16px; margin: 0 0 4px; }
+  .recs { display: grid; gap: 12px; margin-top: 14px; }
+  .rec { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; box-shadow: var(--shadow); display: grid; grid-template-columns: 34px 1fr; gap: 0 12px; }
+  .rank { width: 30px; height: 30px; border-radius: 50%; background: var(--accent-weak); color: var(--accent); display: grid; place-items: center; font-weight: 700; font-size: 14px; }
+  .rec-head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: flex-start; }
+  .rec-title { font-size: 16px; font-weight: 650; margin: 3px 0 6px; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .chip { font-size: 12px; padding: 2px 8px; border-radius: 6px; background: var(--surface-2); color: var(--text-2); }
+  .chip b { color: var(--text); font-weight: 600; }
+  .tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 2px 8px; border-radius: 99px; }
+  .tag.high { background: var(--accent); color: var(--accent-ink); }
+  .tag.medium { background: var(--accent-weak); color: var(--accent); }
+  .tag.low { background: var(--surface-2); color: var(--text-2); }
+  .rec p { margin: 4px 0; color: var(--text-2); }
+  .caption { background: var(--surface-2); border-radius: 10px; padding: 10px 12px; margin-top: 10px; font-size: 14px; white-space: pre-wrap; position: relative; }
+  .caption .label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); display: block; margin-bottom: 2px; }
+  .caption button { position: absolute; top: 8px; right: 8px; font-size: 12px; padding: 2px 9px; }
+  .hashtags { font-size: 13px; color: var(--accent); margin-top: 6px; word-break: break-word; }
+  .evidence { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); font-size: 13px; color: var(--text-2); display: flex; gap: 10px; justify-content: space-between; flex-wrap: wrap; align-items: flex-start; }
+  .evidence .txt { flex: 1 1 320px; }
+  .check { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 99px; white-space: nowrap; }
+  .check.ok { color: var(--good); background: var(--good-bg); }
+  .check.no { color: var(--warn); background: var(--warn-bg); }
+  details.data { margin-top: 14px; }
+  details.data summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+  pre { background: var(--surface-2); border-radius: 10px; padding: 12px; overflow: auto; max-height: 420px; font-size: 12px; }
+  .list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  .list li { display: grid; gap: 2px; }
+  .list .area { font-weight: 600; text-transform: capitalize; }
+  .list .fix { color: var(--text); }
+  .list .fix::before { content: "→ "; color: var(--accent); font-weight: 700; }
+
+  /* tables */
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button { font-size: 13px; padding: 5px 11px; border-radius: 99px; }
+  .tabs button.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  tr:last-child td { border-bottom: 0; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.low td { color: var(--muted); }
+  tr.best td:first-child { font-weight: 600; }
+  .div-bar { display: grid; grid-template-columns: 140px auto; align-items: center; gap: 8px; }
+  .div-bar svg { display: block; }
+  .fmt { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: var(--surface-2); color: var(--text-2); }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+
+  .empty { text-align: center; padding: 48px 20px; }
+  .empty ol { text-align: left; display: inline-block; color: var(--text-2); margin: 12px 0 0; }
+  .skeleton { height: 92px; border-radius: 14px; background: linear-gradient(90deg, var(--surface) 0%, var(--surface-2) 50%, var(--surface) 100%); background-size: 200% 100%; animation: shimmer 1.2s infinite; border: 1px solid var(--border); }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+  .hidden { display: none !important; }
+
+  @media (max-width: 900px) { .kpis { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 720px) {
+    .controls { grid-template-columns: 1fr; }
+    .actions { flex-wrap: wrap; }
+    .grid2 { grid-template-columns: 1fr; }
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .rec { grid-template-columns: 1fr; }
+    .rank { margin-bottom: 6px; }
+  }
 </style>
 </head>
 <body>
 <main>
-  <header>
-    <h1>Instagram Insights</h1>
+  <div class="topbar">
+    <div class="brand"><div class="logo" aria-hidden="true">IG</div><div><h1>Content Intelligence</h1><div class="small muted">What to post next, backed by your data</div></div></div>
     <div class="pills" id="pills"></div>
-  </header>
+  </div>
 
-  <section class="card">
-    <div class="controls">
-      <label class="k">Data source</label>
-      <div class="seg" id="sourceSeg">
-        <button data-source="mock" class="active">Sample data</button>
-        <button data-source="instagram">My Instagram</button>
-      </div>
-      <label class="k" for="context">About the account</label>
-      <input type="text" id="context" placeholder="e.g. Specialty coffee roaster selling online. Goal: more website sales">
-      <span></span>
-      <div class="actions">
-        <button id="syncBtn">Sync posts</button>
-        <button id="analyseBtn" class="primary">Analyse &amp; recommend</button>
-        <label class="note"><input type="checkbox" id="useLlm" checked> Use AI</label>
-        <span class="note" id="stored"></span>
-      </div>
+  <div class="controls">
+    <div class="seg" id="sourceSeg" role="tablist" aria-label="Data source">
+      <button data-source="mock" class="active">Sample data</button>
+      <button data-source="instagram">My Instagram</button>
     </div>
-  </section>
-
+    <input type="text" id="context" aria-label="About the account" placeholder="About the account, e.g. Coffee roaster selling online. Goal: website sales">
+    <div class="actions">
+      <label class="toggle"><input type="checkbox" id="useLlm" checked> Use AI</label>
+      <button id="syncBtn">Sync posts</button>
+      <button id="analyseBtn" class="primary">Analyse &amp; recommend</button>
+    </div>
+    <div class="status-line"><span id="stored"></span><span id="meta"></span></div>
+  </div>
   <div id="msg"></div>
 
+  <div id="empty" class="card empty hidden" style="margin-top:18px">
+    <h2>No posts yet</h2>
+    <p class="muted">Get started in three steps:</p>
+    <ol>
+      <li>Choose <b>Sample data</b> or <b>My Instagram</b></li>
+      <li>Click <b>Sync posts</b> to collect the data</li>
+      <li>Click <b>Analyse &amp; recommend</b></li>
+    </ol>
+  </div>
+
   <div id="results" class="hidden">
-    <section class="kpis" id="kpis" style="margin-bottom:16px"></section>
+    <nav class="sections">
+      <a href="#overview">Overview</a><a href="#recommendations">Recommendations</a>
+      <a href="#analysis">Analysis</a><a href="#posts">Best &amp; worst posts</a>
+    </nav>
 
-    <section class="card hidden" id="recsCard">
-      <h2>Recommended content <span class="note" id="engine"></span></h2>
-      <p id="summary" style="margin-top:0"></p>
-      <div class="recs" id="recs"></div>
+    <section class="block" id="overview">
+      <div class="kpis" id="kpis"></div>
+      <div class="card" style="margin-top:14px">
+        <div class="block-head"><h3>Engagement over time</h3><span class="small muted" id="trendText"></span></div>
+        <div class="grid2">
+          <div><div class="small muted">Avg engagement rate by month</div><div class="chart" id="erChart"></div></div>
+          <div><div class="small muted">Avg reach by month</div><div class="chart" id="reachChart"></div></div>
+        </div>
+      </div>
     </section>
 
-    <div class="two">
-      <section class="card hidden" id="insightsCard"><h2>Key insights</h2><ul id="insights"></ul></section>
-      <section class="card hidden" id="stopCard"><h2>Stop doing</h2><ul id="stop"></ul></section>
-    </div>
-
-    <section class="card">
-      <h2>Performance breakdown</h2>
-      <div class="tabs" id="tabs"></div>
-      <div class="scroll"><table id="breakdown"></table></div>
-      <p class="note">ER = engagement rate (likes + comments + saves + shares ÷ reach). Lift compares a group with your account average: 1.30x means 30% better. Greyed rows have fewer than 3 posts and aren't used for recommendations.</p>
+    <section class="block" id="recommendations">
+      <div class="block-head"><h2>What to post next</h2><span class="small muted" id="engine"></span></div>
+      <div id="recsPrompt" class="card small muted">Click <b>Analyse &amp; recommend</b> to generate recommendations from this data.</div>
+      <div id="recsLoading" class="recs hidden"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
+      <div id="recsBody" class="hidden">
+        <div class="card"><p class="summary" id="summary"></p>
+          <details class="data" id="llmInput">
+            <summary>Data the intelligence layer received</summary>
+            <p class="small muted">The exact input behind these recommendations: computed statistics and rule-based insights. Every number a recommendation cites is checked against it automatically.</p>
+            <pre id="llmInputBody">Loading…</pre>
+          </details>
+        </div>
+        <div class="recs" id="recs"></div>
+        <div class="grid2" style="margin-top:14px">
+          <div class="card hidden" id="underCard"><h3 style="margin-bottom:12px">Underperforming areas</h3><ul class="list" id="under"></ul></div>
+          <div class="card hidden" id="insightsCard"><h3 style="margin-bottom:12px">Key insights</h3><ul class="list" id="insights"></ul></div>
+        </div>
+      </div>
     </section>
 
-    <section class="card">
-      <h2>Top posts</h2>
-      <div class="scroll"><table id="topPosts"></table></div>
+    <section class="block" id="analysis">
+      <div class="block-head"><h2>Performance breakdown</h2><span class="small muted" id="taggerNote"></span></div>
+      <div class="card">
+        <div class="tabs" id="tabs"></div>
+        <div class="scroll"><table id="breakdown"></table></div>
+        <div class="legend">
+          <span><i style="background:var(--pos)"></i>Above account average</span>
+          <span><i style="background:var(--neg)"></i>Below account average</span>
+          <span>Lift: group ÷ account average (1.00x = average). Grey rows: fewer than 3 posts, not used for recommendations.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="block" id="posts">
+      <div class="block-head"><h2>Best &amp; worst posts</h2><span class="small muted">Ranked by engagement rate</span></div>
+      <div class="card">
+        <div class="tabs" id="postTabs">
+          <button data-posts="top_posts" class="active">Best</button>
+          <button data-posts="bottom_posts">Worst</button>
+        </div>
+        <div class="scroll"><table id="postsTable"></table></div>
+      </div>
     </section>
   </div>
 </main>
+<div class="tip" id="tip" role="tooltip"></div>
 
 <script>
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const pct = (v) => v == null ? "–" : (v * 100).toFixed(2) + "%";
+const pct = (v, d = 2) => v == null ? "–" : (v * 100).toFixed(d) + "%";
 const num = (v) => v == null ? "–" : Math.round(v).toLocaleString();
 const x = (v) => v == null ? "–" : v.toFixed(2) + "x";
 const label = (s) => String(s).replace(/_/g, " ");
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const monthLabel = (m) => MONTHS[Number(m.slice(5, 7)) - 1] + (m.slice(5, 7) === "01" ? " " + m.slice(0, 4) : "");
 
 const DIMENSIONS = [
-  ["by_format", "Format"], ["by_topic", "Topic"], ["by_weekday", "Day"], ["by_time_window", "Time of day"],
-  ["by_hashtag_count", "Hashtags"], ["by_caption_length", "Caption length"], ["by_cta", "Call to action"],
+  ["by_format", "Format"], ["by_topic", "Topic"], ["by_style", "Style"], ["by_weekday", "Day"],
+  ["by_time_window", "Time of day"], ["by_hashtag_count", "Hashtags"], ["by_caption_length", "Caption length"],
+  ["by_cta", "Call to action"], ["by_question", "Questions"], ["by_emoji", "Emoji"],
 ];
-let source = "mock", stats = null, dim = "by_format", status = null;
+let source = "mock", stats = null, dim = "by_format", postList = "top_posts", status = null;
 
+/* ---------- plumbing ---------- */
 async function api(path, opts) {
   const res = await fetch(path, opts);
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.detail || `Request failed (${res.status})`);
   return body;
 }
-
-function show(text, kind = "ok") {
-  $("msg").innerHTML = text ? `<div class="msg ${kind}">${esc(text)}</div>` : "";
-}
-
+const show = (text, kind = "ok") => { $("msg").innerHTML = text ? `<div class="msg ${kind}" role="status">${esc(text)}</div>` : ""; };
 function busy(btn, on, text) {
   btn.disabled = on;
-  if (on) { btn.dataset.label = btn.textContent; btn.textContent = text; }
-  else if (btn.dataset.label) btn.textContent = btn.dataset.label;
+  if (on) { btn.dataset.label = btn.innerHTML; btn.innerHTML = `<span class="spinner"></span> ${esc(text)}`; }
+  else if (btn.dataset.label) btn.innerHTML = btn.dataset.label;
 }
+const useLlm = () => $("useLlm").checked;
 
+/* ---------- tooltip (shared by every chart) ---------- */
+const tip = $("tip");
+function showTip(html, ev) {
+  tip.innerHTML = html; tip.classList.add("show");
+  const r = tip.getBoundingClientRect();
+  let left = ev.clientX + 14, top = ev.clientY + 14;
+  if (left + r.width > innerWidth - 8) left = ev.clientX - r.width - 14;
+  if (top + r.height > innerHeight - 8) top = ev.clientY - r.height - 14;
+  tip.style.left = left + "px"; tip.style.top = top + "px";
+}
+const hideTip = () => tip.classList.remove("show");
+document.addEventListener("mousemove", (ev) => {
+  const t = ev.target.closest?.("[data-tip]");
+  if (t) showTip(t.dataset.tip, ev); else if (!ev.target.closest?.(".chart")) hideTip();
+});
+
+/* ---------- data loading ---------- */
 async function loadStatus() {
   status = await api("/api/status");
   $("pills").innerHTML =
-    `<span class="pill ${status.llm ? "on" : ""}">AI: ${status.llm ? "on" : "off (rule-based)"}</span>` +
-    `<span class="pill ${status.instagram ? "on" : ""}">Instagram: ${status.instagram ? "connected" : "not connected"}</span>`;
-  $("useLlm").checked = status.llm;
-  $("useLlm").disabled = !status.llm;
+    `<span class="pill ${status.llm ? "on" : ""}"><span class="dot"></span>AI ${status.llm ? "on" : "off · rule-based"}</span>` +
+    `<span class="pill ${status.instagram ? "on" : ""}"><span class="dot"></span>Instagram ${status.instagram ? "connected" : "not connected"}</span>`;
+  if (!status.llm) { $("useLlm").checked = false; $("useLlm").disabled = true; }
   const n = status.stored[source];
-  $("stored").textContent = n ? `${n} posts stored` : "No posts stored yet. Sync first.";
+  $("stored").textContent = n ? `${n} posts stored for ${source === "mock" ? "sample data" : "your Instagram"}` : "No posts stored yet";
 }
 
 async function sync() {
-  busy($("syncBtn"), true, "Syncing…");
+  busy($("syncBtn"), true, "Syncing");
   show(source === "instagram" ? "Pulling posts and insights from Instagram…" : "Loading sample data…");
   try {
     const r = await api(`/api/sync?source=${source}`, { method: "POST" });
@@ -181,93 +330,212 @@ async function sync() {
 
 async function loadStats() {
   try {
-    stats = await api(`/api/stats?source=${source}`);
-    renderStats();
+    stats = await api(`/api/stats?source=${source}&use_llm=${useLlm()}`);
+    $("empty").classList.add("hidden");
     $("results").classList.remove("hidden");
+    renderStats();
   } catch (e) {
     stats = null;
     $("results").classList.add("hidden");
+    $("empty").classList.remove("hidden");
   }
 }
 
 async function analyse() {
   if (!status.stored[source]) { await sync(); if (!stats) return; }
-  const useLlm = $("useLlm").checked;
-  busy($("analyseBtn"), true, useLlm ? "Thinking… (up to a minute)" : "Analysing…");
-  show("");
+  busy($("analyseBtn"), true, useLlm() ? "Thinking (up to a minute)" : "Analysing");
+  $("recsPrompt").classList.add("hidden"); $("recsBody").classList.add("hidden"); $("recsLoading").classList.remove("hidden");
+  location.hash = ""; $("recommendations").scrollIntoView({ behavior: "smooth", block: "start" });
   try {
-    if (!stats) await loadStats();
-    const q = new URLSearchParams({ source, context: $("context").value, use_llm: useLlm });
+    await loadStats();
+    const q = new URLSearchParams({ source, context: $("context").value, use_llm: useLlm() });
     renderRecs(await api(`/api/recommendations?${q}`));
-  } catch (e) { show(e.message, "err"); }
+  } catch (e) { show(e.message, "err"); $("recsPrompt").classList.remove("hidden"); }
+  $("recsLoading").classList.add("hidden");
   busy($("analyseBtn"), false);
 }
 
-function renderStats() {
-  const o = stats.overview;
-  const kpis = [
-    [o.posts_analysed, "Posts analysed"],
-    [pct(o.avg_engagement_rate), "Avg engagement rate"],
-    [num(o.avg_reach), "Avg reach"],
-    [num(o.total_interactions), "Total interactions"],
-    [o.posts_per_week == null ? "–" : o.posts_per_week.toFixed(1), "Posts per week"],
-  ];
-  $("kpis").innerHTML = kpis.map(([v, l]) => `<div class="kpi"><div class="v">${esc(v)}</div><div class="l">${esc(l)}</div></div>`).join("");
-  if (!o.enough_data) show(`Only ${o.posts_with_engagement_data} post(s) have enough reach data to measure. Recommendations will be a testing plan, not proven patterns.`, "err");
+/* ---------- overview ---------- */
+function delta(change, word) {
+  if (change == null) return "";
+  const dir = change > 0.02 ? "up" : change < -0.02 ? "down" : "flat";
+  const arrow = dir === "up" ? "▲" : dir === "down" ? "▼" : "■";
+  return `<div class="delta ${dir}">${arrow} ${Math.abs(Math.round(change * 100))}% <span class="muted" style="font-weight:400">${word}</span></div>`;
+}
 
+function renderStats() {
+  const o = stats.overview, t = stats.trend, hasTrend = t.direction !== "not enough data";
+  const kpis = [
+    ["Posts", o.posts_analysed, ""],
+    ["Engagement rate", pct(o.avg_engagement_rate), hasTrend ? delta(t.engagement_change, "recent vs earlier") : ""],
+    ["Avg reach", num(o.avg_reach), hasTrend ? delta(t.reach_change, "recent vs earlier") : ""],
+    ["Save rate", pct(o.save_rate), ""],
+    ["Share rate", pct(o.share_rate), ""],
+    ["Posts / week", o.posts_per_week == null ? "–" : o.posts_per_week.toFixed(1), ""],
+  ];
+  $("kpis").innerHTML = kpis.map(([l, v, d]) => `<div class="kpi"><div class="l">${esc(l)}</div><div class="v">${esc(v)}</div>${d}</div>`).join("");
+  if (!o.enough_data) show(`Only ${o.posts_with_engagement_data} post(s) have enough reach data to measure (10+ needed). Recommendations will be a testing plan, not proven patterns.`, "warn");
+  $("meta").textContent = `${o.date_range} · times in ${o.timezone}`;
+  $("taggerNote").textContent = `Topics & styles tagged by ${o.tagger}`;
+  $("trendText").textContent = hasTrend
+    ? `Recent half (${t.recent_period}) vs earlier half (${t.early_period})`
+    : "Not enough measurable posts to compare periods yet";
+
+  renderCharts();
   $("tabs").innerHTML = DIMENSIONS.map(([k, l]) => `<button data-dim="${k}" class="${k === dim ? "active" : ""}">${l}</button>`).join("");
   renderBreakdown();
+  renderPosts();
+}
 
-  $("topPosts").innerHTML = `<tr><th>Post</th><th>Format</th><th>Topic</th><th>Posted (UTC)</th><th>ER</th><th>Reach</th><th>Saves</th></tr>` +
-    stats.top_posts.map((p) => `<tr>
-      <td><a href="${esc(p.permalink)}" target="_blank" rel="noopener">${esc(p.caption.slice(0, 60) || "(no caption)")}</a></td>
-      <td>${esc(p.media_type)}</td><td>${esc(label(p.topic))}</td><td class="num">${esc(p.posted)}</td>
-      <td class="num">${pct(p.engagement_rate)}</td><td class="num">${num(p.reach)}</td><td class="num">${num(p.saves)}</td></tr>`).join("");
+function lineChart(el, points, fmt) {
+  const W = Math.max(el.clientWidth, 240), H = 170, m = { l: 48, r: 10, t: 12, b: 24 };
+  const vals = points.map((p) => p.value).filter((v) => v != null);
+  if (!vals.length) { el.innerHTML = `<p class="small muted">No data yet.</p>`; return; }
+  // round axis: step of 1/2/2.5/5 x 10^n so ticks read 0%, 2%, 4%, 6%... not 3.6%, 7.1%
+  const raw = (Math.max(...vals) || 1) / 3, pow = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 2.5, 5, 10].map((k) => k * pow).find((s) => s >= raw);
+  const max = Math.ceil(Math.max(...vals) / step) * step || step;
+  const xs = (i) => m.l + (points.length === 1 ? (W - m.l - m.r) / 2 : i * (W - m.l - m.r) / (points.length - 1));
+  const ys = (v) => m.t + (1 - v / max) * (H - m.t - m.b);
+  const ticks = Array.from({ length: Math.round(max / step) + 1 }, (_, i) => i * step);
+  const pts = points.map((p, i) => p.value == null ? null : [xs(i), ys(p.value)]);
+  const path = pts.filter(Boolean).map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
+  const first = pts.find(Boolean), last = [...pts].reverse().find(Boolean);
+  const area = path + ` L${last[0].toFixed(1)} ${ys(0)} L${first[0].toFixed(1)} ${ys(0)} Z`;
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="${esc(points.map((p) => `${p.label}: ${fmt(p.value)}`).join(", "))}">
+    ${ticks.map((t) => `<line class="gridline" x1="${m.l}" x2="${W - m.r}" y1="${ys(t)}" y2="${ys(t)}"/><text class="axis-text" x="${m.l - 8}" y="${ys(t) + 4}" text-anchor="end">${fmt(t)}</text>`).join("")}
+    ${points.map((p, i) => `<text class="axis-text" x="${xs(i)}" y="${H - 6}" text-anchor="middle">${esc(p.label)}</text>`).join("")}
+    <path class="area" d="${area}"/><path class="line" d="${path}"/>
+    <line class="cross hidden" y1="${m.t}" y2="${H - m.b}"/>
+    ${pts.map((p) => p ? `<circle class="pt" cx="${p[0]}" cy="${p[1]}" r="4"/>` : "").join("")}
+    <rect x="${m.l}" y="0" width="${W - m.l - m.r}" height="${H}" fill="transparent"/>
+  </svg>`;
+  const svg = el.querySelector("svg"), cross = svg.querySelector(".cross");
+  svg.addEventListener("mousemove", (ev) => {
+    const rect = svg.getBoundingClientRect(), px = (ev.clientX - rect.left) * (W / rect.width);
+    let i = 0, best = Infinity;
+    points.forEach((_, j) => { const d = Math.abs(xs(j) - px); if (d < best) { best = d; i = j; } });
+    cross.setAttribute("x1", xs(i)); cross.setAttribute("x2", xs(i)); cross.classList.remove("hidden");
+    const p = points[i];
+    showTip(`<b>${esc(p.full)}</b><br>${fmt(p.value)}<br>${p.posts} post${p.posts === 1 ? "" : "s"}${p.posts < 5 ? " · small sample" : ""}`, ev);
+  });
+  svg.addEventListener("mouseleave", () => { cross.classList.add("hidden"); hideTip(); });
+}
+
+function renderCharts() {
+  const rows = stats.monthly_trend;
+  const base = (m) => ({ label: monthLabel(m.month), full: m.month, posts: m.posts });
+  lineChart($("erChart"), rows.map((m) => ({ ...base(m), value: m.avg_engagement_rate })), (v) => pct(v, v >= 0.1 || v === 0 ? 0 : 1).replace(".0%", "%"));
+  lineChart($("reachChart"), rows.map((m) => ({ ...base(m), value: m.avg_reach })), (v) => num(v));
+}
+let resizeTimer;
+addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => stats && renderCharts(), 150); });
+
+/* ---------- breakdown: diverging bars around the 1.0x average ---------- */
+function divBar(v, span, what, r) {
+  if (v == null) return "–";
+  const W = 140, H = 14, mid = W / 2, w = Math.min(Math.abs(v - 1) / span, 1) * (mid - 2);
+  const xPos = v >= 1 ? mid : mid - w, color = v >= 1 ? "var(--pos)" : "var(--neg)";
+  const tipHtml = `<b>${esc(label(r.segment))}</b><br>${what}: ${x(v)} the account average<br>${r.posts} posts`;
+  return `<div class="div-bar" data-tip="${esc(tipHtml)}"><svg width="${W}" height="${H}" aria-hidden="true">
+      <rect x="${xPos}" y="2" width="${Math.max(w, 1.5)}" height="${H - 4}" rx="3" fill="${color}"/>
+      <line x1="${mid}" x2="${mid}" y1="0" y2="${H}" stroke="var(--mid)" stroke-width="1.5"/></svg>
+    <span class="num">${x(v)}</span></div>`;
 }
 
 function renderBreakdown() {
   const rows = stats[dim];
-  const max = Math.max(...rows.map((r) => Math.max(r.lift || 0, r.reach_lift || 0)), 1);
-  const bar = (v) => v == null ? "–" : `<div class="bar"><span style="width:${(v / max) * 100}px"></span>${x(v)}</div>`;
-  $("breakdown").innerHTML = `<tr><th>Group</th><th>Posts</th><th>Avg ER</th><th>Engagement lift</th><th>Avg reach</th><th>Reach lift</th></tr>` +
-    rows.map((r) => `<tr class="${r.reliable ? "" : "low"}">
+  const span = Math.max(0.25, ...rows.flatMap((r) => [r.lift, r.reach_lift]).filter((v) => v != null).map((v) => Math.abs(v - 1)));
+  const bestEr = Math.max(...rows.filter((r) => r.reliable && r.lift != null).map((r) => r.lift));
+  $("breakdown").innerHTML = `<tr><th>Group</th><th>Posts</th><th>Avg ER</th><th>Engagement vs avg</th><th>Avg reach</th><th>Reach vs avg</th></tr>` +
+    rows.map((r) => `<tr class="${r.reliable ? (r.lift === bestEr ? "best" : "") : "low"}">
       <td>${esc(label(r.segment))}</td><td class="num">${r.posts}</td><td class="num">${pct(r.avg_engagement_rate)}</td>
-      <td>${bar(r.lift)}</td><td class="num">${num(r.avg_reach)}</td><td>${bar(r.reach_lift)}</td></tr>`).join("");
+      <td>${divBar(r.lift, span, "Engagement", r)}</td><td class="num">${num(r.avg_reach)}</td><td>${divBar(r.reach_lift, span, "Reach", r)}</td></tr>`).join("");
+}
+
+function renderPosts() {
+  const rows = stats[postList];
+  $("postsTable").innerHTML = !rows.length ? `<tr><td class="muted">No measurable posts yet.</td></tr>` :
+    `<tr><th>Post</th><th>Format</th><th>Topic · style</th><th>Posted</th><th>ER</th><th>Reach</th><th>Saves</th><th>Shares</th></tr>` +
+    rows.map((p) => `<tr>
+      <td><a href="${esc(p.permalink)}" target="_blank" rel="noopener">${esc(p.caption.slice(0, 64) || "(no caption)")}</a></td>
+      <td><span class="fmt">${esc(p.media_type)}</span></td>
+      <td>${esc(label(p.topic))}<div class="small muted">${esc(p.style)}</div></td><td class="num small">${esc(p.posted)}</td>
+      <td class="num"><b>${pct(p.engagement_rate)}</b></td><td class="num">${num(p.reach)}</td><td class="num">${num(p.saves)}</td><td class="num">${num(p.shares)}</td></tr>`).join("");
+}
+
+/* ---------- recommendations ---------- */
+function checkBadge(g, mode) {
+  if (mode === "testing plan") return `<span class="check no" title="Too little data to verify against">◔ Testing plan</span>`;
+  if (!g) return "";
+  if (g.grounded) return `<span class="check ok" title="Every number cited matches the data">✓ ${g.numbers_matched}/${g.numbers_cited} numbers verified</span>`;
+  const why = [...g.unmatched_numbers.map((n) => `${n} not in data`), ...g.unknown_posts.map((p) => `unknown post ${p}`)];
+  if (!g.format_in_data) why.push("format not in data");
+  return `<span class="check no" title="${esc(why.join(", "))}">⚠ Not verified: ${esc(why.join(", ") || "no numbers cited")}</span>`;
+}
+function postLink(id) {
+  const p = [...stats.top_posts, ...stats.bottom_posts].find((q) => q.id === id);
+  return p ? `<a href="${esc(p.permalink)}" target="_blank" rel="noopener">${esc(p.caption.slice(0, 40) || id)}</a>` : esc(id);
 }
 
 function renderRecs(r) {
-  $("engine").textContent = `· ${r.engine}`;
+  const g = r.grounding_summary;
+  const other = g.other_numbers_cited ? ` · summary & improvements: ${g.other_numbers_cited - g.other_numbers_unmatched.length}/${g.other_numbers_cited} numbers verified` : "";
+  $("engine").textContent = `${r.engine} · ${r.mode} · ${g.verified}/${g.total} recommendations verified${other}`;
+  $("engine").title = g.other_numbers_unmatched?.length ? `Not found in the data: ${g.other_numbers_unmatched.join(", ")}` : "";
   $("summary").textContent = r.summary;
+  const unique = (ids) => [...new Set(ids || [])];
   $("recs").innerHTML = r.recommendations.map((rec, i) => `
-    <div class="rec">
-      <h3>${i + 1}. ${esc(rec.title)} <span class="badge">${esc(rec.priority)}</span></h3>
-      <div class="meta">${esc(rec.format)} · ${esc(label(rec.topic))} · ${esc(rec.best_day)}, ${esc(rec.best_time)}</div>
-      <p>${esc(rec.why)}</p>
-      ${rec.caption_draft ? `<div class="caption"><button data-copy="${i}">Copy</button>${esc(rec.caption_draft)}</div>` : ""}
-      ${rec.hashtags?.length ? `<p class="note">${rec.hashtags.map((h) => "#" + esc(h.replace(/^#/, ""))).join(" ")}</p>` : ""}
-      <div class="evidence">${esc(rec.evidence)}</div>
-    </div>`).join("");
+    <article class="rec">
+      <div class="rank">${i + 1}</div>
+      <div>
+        <div class="rec-head">
+          <div class="rec-title">${esc(rec.title)}</div>
+          <div style="display:flex;gap:6px"><span class="tag ${esc(rec.priority)}">${esc(rec.priority)}</span></div>
+        </div>
+        <div class="chips">
+          <span class="chip"><b>${esc(rec.format)}</b></span>
+          <span class="chip">Topic <b>${esc(label(rec.topic))}</b></span>
+          <span class="chip">Style <b>${esc(rec.style)}</b></span>
+          <span class="chip">When <b>${esc(rec.best_day)}, ${esc(rec.best_time)}</b></span>
+          <span class="chip">Grows <b>${esc(rec.goal)}</b></span>
+        </div>
+        <p>${esc(rec.why)}</p>
+        ${rec.caption_draft ? `<div class="caption"><span class="label">Caption draft</span><button data-copy="${i}">Copy</button>${esc(rec.caption_draft)}</div>` : ""}
+        ${rec.hashtags?.length ? `<div class="hashtags">${rec.hashtags.map((h) => "#" + esc(h.replace(/^#/, ""))).join(" ")}</div>` : ""}
+        <div class="evidence"><div class="txt"><b>Evidence:</b> ${esc(rec.evidence)}${unique(rec.based_on_posts).length ? `<br><b>Builds on:</b> ${unique(rec.based_on_posts).map(postLink).join(", ")}` : ""}</div>${checkBadge(rec.grounding, r.mode)}</div>
+      </div>
+    </article>`).join("");
   $("recs").onclick = (e) => {
     const i = e.target.dataset.copy;
     if (i == null) return;
     const rec = r.recommendations[i];
     navigator.clipboard?.writeText([rec.caption_draft, (rec.hashtags || []).map((h) => "#" + h.replace(/^#/, "")).join(" ")].filter(Boolean).join("\n\n"));
-    e.target.textContent = "Copied";
+    e.target.textContent = "Copied ✓";
   };
-  $("insights").innerHTML = r.key_insights.map((k) => `<li>${esc(k.insight)} <span class="note">(${esc(k.evidence)})</span></li>`).join("");
-  $("stop").innerHTML = (r.stop_doing || []).map((s) => `<li>${esc(s)}</li>`).join("");
-  $("recsCard").classList.remove("hidden");
+  $("insights").innerHTML = r.key_insights.map((k) => `<li><span>${esc(k.insight)}</span><span class="small muted">${esc(k.evidence)}</span></li>`).join("");
+  $("under").innerHTML = (r.underperforming || []).map((u) => `<li><span class="area">${esc(label(u.area))}</span><span class="small muted">${esc(u.evidence)}</span><span class="fix">${esc(u.suggestion)}</span></li>`).join("");
   $("insightsCard").classList.toggle("hidden", !r.key_insights.length);
-  $("stopCard").classList.toggle("hidden", !(r.stop_doing || []).length);
-  $("recsCard").scrollIntoView({ behavior: "smooth", block: "start" });
+  $("underCard").classList.toggle("hidden", !(r.underperforming || []).length);
+  $("llmInput").open = false;
+  $("llmInputBody").textContent = "Loading…";
+  $("recsBody").classList.remove("hidden");
 }
 
+/* ---------- events ---------- */
+$("llmInput").addEventListener("toggle", async () => {
+  if (!$("llmInput").open) return;
+  try {
+    const q = new URLSearchParams({ source, context: $("context").value, use_llm: useLlm() });
+    $("llmInputBody").textContent = JSON.stringify(await api(`/api/llm-input?${q}`), null, 2);
+  } catch (e) { $("llmInputBody").textContent = e.message; }
+});
 $("sourceSeg").onclick = async (e) => {
   const s = e.target.dataset.source;
   if (!s || s === source) return;
   source = s;
   document.querySelectorAll("#sourceSeg button").forEach((b) => b.classList.toggle("active", b.dataset.source === s));
-  ["recsCard", "insightsCard", "stopCard"].forEach((id) => $(id).classList.add("hidden"));
+  $("recsBody").classList.add("hidden"); $("recsPrompt").classList.remove("hidden"); $("engine").textContent = "";
   show("");
   await loadStatus();
   await loadStats();
@@ -277,6 +545,12 @@ $("tabs").onclick = (e) => {
   dim = e.target.dataset.dim;
   document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("active", b.dataset.dim === dim));
   renderBreakdown();
+};
+$("postTabs").onclick = (e) => {
+  if (!e.target.dataset.posts) return;
+  postList = e.target.dataset.posts;
+  document.querySelectorAll("#postTabs button").forEach((b) => b.classList.toggle("active", b.dataset.posts === postList));
+  renderPosts();
 };
 $("syncBtn").onclick = sync;
 $("analyseBtn").onclick = analyse;

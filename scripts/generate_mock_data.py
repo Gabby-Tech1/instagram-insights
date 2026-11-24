@@ -38,6 +38,8 @@ TOPICS = {
 }
 FORMAT_MULT = {"REEL": (1.7, 1.0), "CAROUSEL": (1.0, 1.25), "IMAGE": (0.75, 0.85)}  # (reach, engagement)
 WEEKDAY_MULT = [0.95, 1.15, 1.0, 1.15, 0.95, 0.85, 0.9]
+QUESTIONS = ["What's your go-to brew?", "Which one would you pick?", "How do you take yours?"]
+EMOJIS = ["☕", "🔥", "✨", "☕️🙌"]
 CTAS = ["Save this for later.", "Tag a friend who needs this.", "Comment your favourite brew below.", "Link in bio."]
 HASHTAGS = ["coffee", "specialtycoffee", "pourover", "espresso", "homebarista", "coffeetime",
             "v60", "latteart", "coffeelover", "roastery", "baristalife", "coffeeroaster",
@@ -76,18 +78,23 @@ def main() -> None:
             caption += "."
         if has_cta:
             caption += " " + random.choice(CTAS)
+        asks_question = random.random() < 0.3
+        if asks_question:
+            caption += " " + random.choice(QUESTIONS)
+        if random.random() < 0.4:
+            caption += " " + random.choice(EMOJIS)
         if n_tags:
             caption += "\n\n" + " ".join("#" + t for t in random.sample(HASHTAGS, min(n_tags, len(HASHTAGS))))
 
         growth = 1 + i / 160  # account slowly growing
         noise = random.lognormvariate(0, 0.22)
         reach = int(3200 * reach_m * WEEKDAY_MULT[ts.weekday()] * hour_mult(ts.hour) * tag_mult * growth * noise)
-        er = 0.045 * eng_m * topic_mult * (1.1 if has_cta else 1.0) * (1.05 if long_caption else 1.0) * random.lognormvariate(0, 0.15)
+        er = 0.045 * eng_m * topic_mult * (1.1 if has_cta else 1.0) * (1.08 if asks_question else 1.0) * (1.05 if long_caption else 1.0) * random.lognormvariate(0, 0.15)
         interactions = int(reach * er)
         save_share = 0.32 if topic == "tutorial" else 0.12
         saves = int(interactions * save_share * (1.4 if fmt == "CAROUSEL" else 1))
         shares = int(interactions * (0.12 if fmt == "REEL" else 0.06))
-        comments = int(interactions * (0.09 if has_cta else 0.04))
+        comments = int(interactions * (0.09 if has_cta else 0.04) * (1.6 if asks_question else 1.0))
         likes = max(interactions - saves - shares - comments, 0)
 
         posts.append({

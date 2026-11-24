@@ -58,6 +58,7 @@ def test_small_account_gets_testing_plan_not_fake_patterns():
     posts = [Post.from_dict(p.__dict__) for p in posts]  # exercises timestamp parsing
     stats = analyse(posts)
     assert stats["overview"]["enough_data"] is False
+    assert stats["overview"]["save_rate"] is None  # reach of 1 must not produce a 200% save rate
     assert rule_based_insights(stats) == []
     recs = recommend(stats, use_llm=False)
     assert "testing plan" in recs["summary"]
